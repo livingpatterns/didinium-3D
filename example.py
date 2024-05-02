@@ -95,9 +95,5 @@ We can use the channel_1 pointcloud and see in which plane it has the
 most variance to approximate the plane of symmetry. 
 This might not be optimal for every data we have. 
 """
-a, b, c, d = utils.compute_projection_plane(pointcloud_1)
+a, b, c, d = utils.compute_projection_plane(pointcloud_1.T)
 sagittal_plane = np.array([a, b, c, d]) # Naming should be corrected
-
-
-
-
