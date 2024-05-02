@@ -1,0 +1,10 @@
+# pip install -U pip setuptools
+mayavi
+PyQt5
+numpy
+plyfile
+matplotlib
+aicspylibczi
+scikit-learn
+# wxpython # note: Ubuntu does not support this library
+PySide2
