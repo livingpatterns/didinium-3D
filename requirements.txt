@@ -8,3 +8,4 @@ aicspylibczi
 scikit-learn
 # wxpython # note: Ubuntu does not support this library
 PySide2
+open3d

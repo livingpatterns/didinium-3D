@@ -97,3 +97,7 @@ This might not be optimal for every data we have.
 """
 a, b, c, d = utils.compute_projection_plane(pointcloud_1.T)
 sagittal_plane = np.array([a, b, c, d]) # Naming should be corrected
+
+"Work in progress"
+# first_cilia_band, second_cilia_band = utils.label_cilia_bands(pointcloud_3, sagittal_plane)
+# utils.visualize_cilia_bands(first_cilia_band, second_cilia_band)

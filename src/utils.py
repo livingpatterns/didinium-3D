@@ -1,9 +1,11 @@
 import os
 import numpy as np
+import open3d as o3d
 from mayavi import mlab
 from pathlib import Path
 from aicspylibczi import CziFile
 import matplotlib.colors as colors
+from sklearn.cluster import DBSCAN
 from sklearn.decomposition import FastICA
 from plyfile import PlyData, PlyElement
 
@@ -139,7 +141,10 @@ def visualize_pointcloud(data, title = None, fig_id = 1):
 
 
 def write_numpy_array_to_ply(filename, numpy_array):
-    # Assuming the numpy_array is an n by 3 array, create a PLY element
+    """
+    Assuming the numpy_array is an n by 3 array, create a PLY element 
+    save numpy array to ply file
+    """
     vertex = np.array([tuple(row) for row in numpy_array],
                       dtype=[('x', 'f4'), ('y', 'f4'), ('z', 'f4')])
 
@@ -152,7 +157,7 @@ def write_numpy_array_to_ply(filename, numpy_array):
 
 
 def write_numpy_array_to_txt(point_cloud, file_path):
-    # Transpose the numpy array to a 3 by n array
+    "Transpose the numpy array to a 3 by n array"
     numpy_array = point_cloud.T
     np.savetxt(file_path, numpy_array, delimiter=',')
     print("Point Cloud is saved to file!")
@@ -191,7 +196,87 @@ def compute_projection_plane(data, equation=True):
         return a, b, c, d
     else:
         return np.mean(data, axis=0), plane_normal
+
+
+def project_point_cloud_onto_plane(point_cloud, a, b, c, d):
+    """
+    Project a point cloud onto a plane defined by ax + by + cz + d = 0.
+
+    Parameters:
+    - point_cloud (numpy.ndarray): An Nx3 array representing the 3D point cloud.
+    - a, b, c, d (float): Coefficients defining the plane equation ax + by + cz + d = 0.
+
+    Returns:
+    - numpy.ndarray: An Nx3 array representing the projected point cloud on the plane.
+    """
+    # Calculate the denominator for the distance formula (a^2 + b^2 + c^2).
+    denominator = np.sqrt(a**2 + b**2 + c**2)
+
+    # Calculate the distances from each point in the point cloud to the plane.
+    distances = (a * point_cloud[:, 0] + b * point_cloud[:, 1] + c * point_cloud[:, 2] + d) / denominator
+
+    # Calculate the projected points on the plane.
+    x_proj = point_cloud[:, 0] - distances * a
+    y_proj = point_cloud[:, 1] - distances * b
+    z_proj = point_cloud[:, 2] - distances * c
+
+    # Create the projected point cloud array.
+    projected_point_cloud = np.column_stack((x_proj, y_proj, z_proj))
+
+    return projected_point_cloud
+
+
+def label_cilia_bands(pointcloud, sagittal_plane):        
+    "pointcloud = Channel 3"
+    points = np.copy(pointcloud.T)
     
+    projected_point_cloud = project_point_cloud_onto_plane(points, sagittal_plane[0], sagittal_plane[1], sagittal_plane[2], sagittal_plane[3])
+    
+    # Perform clustering using DBSCAN
+    epsilon = 2e-6  # Adjust this value to control the density of points within a cluster
+    min_points = 20  # Adjust this value to set the minimum number of points in a cluster
+    dbscan = DBSCAN(eps=epsilon, min_samples=min_points)
+    cluster_labels = dbscan.fit_predict(projected_point_cloud)
+
+    # Get the unique cluster labels and their respective counts
+    unique_labels, label_counts = np.unique(cluster_labels, return_counts=True)
+
+    # Sort the labels based on the cluster sizes in descending order
+    sorted_labels = unique_labels[np.argsort(label_counts)[::-1]]
+
+    # Extract the labels of the two largest clusters
+    largest_cluster_label = sorted_labels[0]
+    second_largest_cluster_label = sorted_labels[1]
+
+    # Filter the indices of the points belonging to the two largest clusters
+    largest_cluster_indices = np.where(cluster_labels == largest_cluster_label)[0]
+    second_largest_cluster_indices = np.where(cluster_labels == second_largest_cluster_label)[0]
+
+    # Extract the points corresponding to the two largest clusters in the original point cloud
+    first_cilia_band = points[second_largest_cluster_indices]
+    second_cilia_band = points[largest_cluster_indices]
+
+    return first_cilia_band, second_cilia_band
+
+
+def visualize_cilia_bands(first_cilia_band, second_cilia_band):
+    # define colors
+    color1 = [0.0, 0.0, 0.5]   # Dark Blue 
+    color2 = [1.0, 0.65, 0.0]  # Orange
+
+    # Create Open3D point cloud objects
+    pcd1 = o3d.geometry.PointCloud()
+    pcd2 = o3d.geometry.PointCloud()
+
+    # Assign points and colors to the point cloud objects
+    pcd1.points = o3d.utility.Vector3dVector(first_cilia_band)
+    pcd1.paint_uniform_color(color1)
+
+    pcd2.points = o3d.utility.Vector3dVector(second_cilia_band)
+    pcd2.paint_uniform_color(color2)
+
+    o3d.visualization.draw_geometries([pcd1, pcd2], 'Cilia Bands')
+
     
 def xyz_to_spherical(x, y, z):
     """
