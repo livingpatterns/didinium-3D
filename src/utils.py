@@ -114,6 +114,7 @@ def generate_point_cloud(img, shape, X_SCALE, Y_SCALE, Z_SCALE,
 
     return np.transpose(point_cloud) # transpose works the best
 
+
 def visualize_pointcloud(data, title = None, fig_id = 1):
     # For visualizing point clouds
     x = data[0,:] 
@@ -157,6 +158,41 @@ def write_numpy_array_to_txt(point_cloud, file_path):
     print("Point Cloud is saved to file!")
 
 
+def compute_projection_plane(data, equation=True):
+    """
+    Perform Independent Component Analysis on 3D data and return the plane description.
+
+    Parameters:
+        data (numpy.ndarray): 3D data with shape (N, 3) where N is the number of points.
+        equation (bool): If True, returns the plane equation (a, b, c, d). If False, returns the point on the plane and the normal vector.
+
+    Returns:
+        tuple: The plane description in the specified format.
+    """
+    # Center the data to have zero mean
+    data_centered = data - np.mean(data, axis=0)
+
+    # Perform Independent Component Analysis
+    ica = FastICA(n_components=2, tol=5e-3, max_iter=1000)
+    ica.fit(data_centered)
+    components = ica.components_
+
+    # Choose the two ICA components to form the 2D plane
+    plane_normal = np.cross(components[0], components[1])
+    plane_normal /= np.linalg.norm(plane_normal)
+
+    if equation:
+        # Plane equation: ax + by + cz + d = 0
+        a, b, c = plane_normal
+        if a < 0:
+            plane_normal = -plane_normal
+        a, b, c = plane_normal
+        d = -np.dot(plane_normal, np.mean(data, axis=0))
+        return a, b, c, d
+    else:
+        return np.mean(data, axis=0), plane_normal
+    
+    
 def xyz_to_spherical(x, y, z):
     """
     Convert XYZ coordinates to spherical coordinates.
@@ -179,6 +215,7 @@ def xyz_to_spherical(x, y, z):
     phi[phi < 0] += 2 * np.pi
 
     return r, theta, phi
+
 
 def xyz_to_cylindrical(x, y, z):
     """
